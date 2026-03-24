@@ -40,7 +40,6 @@ pythonpath= "."
 addopts = '-p no:warnings'
 
 [tool.taskipy.tasks]
-pre_lint = 'typos'
 lint= 'ruff check'
 pre_format = 'ruff check --fix'
 format= 'ruff format'
