@@ -1,13 +1,12 @@
+from datetime import date
+
 from pydantic import BaseModel, EmailStr
-
-
-class Message(BaseModel):
-    message: str
 
 
 class UserPublicSchema(BaseModel):
     username: str
     email: EmailStr
+    birth_date: date
 
 
 class UserPrivateSchema(UserPublicSchema):
