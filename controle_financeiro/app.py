@@ -1,22 +1,31 @@
 from http import HTTPStatus
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
+from controle_financeiro.database import get_session
+from controle_financeiro.models import User
 from controle_financeiro.schemas import (
     UserListSchema,
     UserPrivateSchema,
     UserPublicSchema,
 )
+from controle_financeiro.security import get_password_hash
 
 app = FastAPI()
-
-database = []  # Simulando um banco de dados com uma lista
 
 
 # users
 @app.get('/users/', status_code=HTTPStatus.OK, response_model=UserListSchema)
-def fetch_users():
-    return {'users': database}
+def fetch_users(
+    session: Session = Depends(get_session),
+    limit: int = 10,
+    offset: int = 0,
+):
+    users = session.scalars(select(User).limit(limit).offset(offset))
+    return {'users': users}
 
 
 @app.get(
@@ -24,21 +33,44 @@ def fetch_users():
     status_code=HTTPStatus.OK,
     response_model=UserPublicSchema,
 )
-def fetch_user(user_id: int):
+def fetch_user(user_id: int, session: Session = Depends(get_session)):
+    if not user_id:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_CONTENT)
 
-    if user_id > len(database) or user_id < 1:
+    db_user = session.scalar(select(User).where(User.id == user_id))
+
+    if not db_user:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
-    return database[user_id - 1]
+    return db_user
 
 
 @app.post(
     '/users/', status_code=HTTPStatus.CREATED, response_model=UserPublicSchema
 )
-def create_user(user: UserPrivateSchema):
-    user_with_id = {**user.model_dump(), 'id': len(database) + 1}
-    database.append(user_with_id)
-    return user
+def create_user(user: UserPrivateSchema, session=Depends(get_session)):
+
+    db_user = session.scalar(
+        select(User).where(
+            (User.username == user.username) | (User.email == user.email)
+        )
+    )
+
+    user.password = get_password_hash(user.password)
+
+    db_user = User(**user.model_dump())
+
+    session.add(db_user)
+
+    try:
+        session.commit()
+    except IntegrityError:
+        raise HTTPException(
+            detail='Username or Email already exists',
+            status_code=HTTPStatus.CONFLICT,
+        )
+
+    return db_user
 
 
 @app.put(
@@ -46,23 +78,49 @@ def create_user(user: UserPrivateSchema):
     status_code=HTTPStatus.OK,
     response_model=UserPublicSchema,
 )
-def update_user(user_id: int, user: UserPublicSchema):
+def update_user(
+    user_id: int,
+    user: UserPrivateSchema,
+    session: Session = Depends(get_session),
+):
+    if not user_id:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_CONTENT)
 
-    if user_id > len(database) or user_id < 1:
+    db_user = session.scalar(select(User).where(User.id == user_id))
+
+    if not db_user:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
-    user_with_id = {**user.model_dump(), 'id': user_id}
-    database[user_id - 1] = user_with_id
+    try:
+        db_user.username = user.username
+        db_user.email = user.email
+        db_user.password = get_password_hash(user.password)
+        db_user.birth_date = user.birth_date
 
-    return user_with_id
+        session.commit()
+
+    except IntegrityError:
+        raise HTTPException(
+            detail='Username or Email already exists',
+            status_code=HTTPStatus.CONFLICT,
+        )
+
+    session.refresh(db_user)
+    return db_user
 
 
 @app.delete(
     '/users/{user_id}',
     status_code=HTTPStatus.NO_CONTENT,
 )
-def delete_user(user_id: int):
-    if user_id > len(database) or user_id < 1:
+def delete_user(user_id: int, session: Session = Depends(get_session)):
+    if not user_id:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_CONTENT)
+
+    db_user = session.scalar(select(User).where(User.id == user_id))
+
+    if not db_user:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
-    database.pop(user_id - 1)
+    session.delete(db_user)
+    session.commit()

@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class UserPublicSchema(BaseModel):
@@ -8,13 +8,11 @@ class UserPublicSchema(BaseModel):
     email: EmailStr
     birth_date: date
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class UserPrivateSchema(UserPublicSchema):
     password: str
-
-
-class UserDB(UserPrivateSchema):
-    id: int
 
 
 class UserListSchema(BaseModel):
