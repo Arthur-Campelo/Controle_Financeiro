@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from controle_financeiro.app import app
 from controle_financeiro.database import get_session
 from controle_financeiro.models import User, table_registry
+from controle_financeiro.security import get_password_hash
 
 
 @pytest.fixture
@@ -49,10 +50,11 @@ def mock_db_time():
 
 @pytest.fixture
 def user(session: Session):
+    password = 'alicealice'
     user = User(
         username='alice',
         email='alice@gmail.com',
-        password='alicealice',
+        password=get_password_hash(password),
         birth_date=date(2026, 3, 5),
     )
 
@@ -60,7 +62,23 @@ def user(session: Session):
     session.commit()
     session.refresh(user)
 
+    # salvando apenas em execução a senha limpa para testes
+    user.clean_password = password
+
     return user
+
+
+@pytest.fixture
+def token(client, user):
+    response = client.post(
+        '/token/',
+        data={
+            'username': user.email,
+            'password': user.clean_password,
+        },
+    )
+
+    return response.json()['access_token']
 
 
 @contextmanager
