@@ -11,11 +11,9 @@ from sqlalchemy.orm import Session
 
 from controle_financeiro.database import get_session
 from controle_financeiro.models import User
+from controle_financeiro.settings import Settings
 
-SECRET_KEY = '8bA-Z5xR_P2wL9vN4qM1cT7yK0jH3sF6dG9bC5mX_uY'
-ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_DAYS = 7
-
+settings = Settings()
 pwd_context = PasswordHash.recommended()
 
 
@@ -31,17 +29,19 @@ def create_access_token(data: dict):
     to_encode = data.copy()
 
     expire = datetime.now(tz=ZoneInfo('UTC')) + timedelta(
-        days=ACCESS_TOKEN_EXPIRE_DAYS
+        days=settings.ACCESS_TOKEN_EXPIRE_DAYS
     )
 
     to_encode.update({'exp': expire})
 
-    encoded_jwt = encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
 
     return encoded_jwt
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token/')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='auth/token/')
 
 
 def get_current_user(
@@ -55,7 +55,9 @@ def get_current_user(
     )
 
     try:
-        payload = decode(token, SECRET_KEY, algorithms=ALGORITHM)
+        payload = decode(
+            token, settings.SECRET_KEY, algorithms=settings.ALGORITHM
+        )
         subject_email = payload.get('sub')
         if not subject_email:
             raise invalid_credentials_exception

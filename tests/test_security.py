@@ -3,19 +3,17 @@ from http import HTTPStatus
 from jwt import decode
 
 from controle_financeiro.security import (
-    ALGORITHM,
-    SECRET_KEY,
     create_access_token,
     get_password_hash,
     verify_password,
 )
 
 
-def test_jwt():
+def test_jwt(settings):
     data = {'test': 'test'}
 
     token = create_access_token(data)
-    decoded = decode(token, SECRET_KEY, algorithms=ALGORITHM)
+    decoded = decode(token, settings.SECRET_KEY, algorithms=settings.ALGORITHM)
 
     assert data['test'] == decoded['test']
     assert 'exp' in decoded

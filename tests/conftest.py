@@ -11,6 +11,7 @@ from controle_financeiro.app import app
 from controle_financeiro.database import get_session
 from controle_financeiro.models import User, table_registry
 from controle_financeiro.security import get_password_hash
+from controle_financeiro.settings import Settings
 
 
 @pytest.fixture
@@ -63,7 +64,7 @@ def user(session: Session):
     session.refresh(user)
 
     # salvando apenas em execução a senha limpa para testes
-    user.clean_password = password
+    user.clean_password = password  # type: ignore
 
     return user
 
@@ -71,7 +72,7 @@ def user(session: Session):
 @pytest.fixture
 def token(client, user):
     response = client.post(
-        '/token/',
+        'auth/token/',
         data={
             'username': user.email,
             'password': user.clean_password,
@@ -79,6 +80,11 @@ def token(client, user):
     )
 
     return response.json()['access_token']
+
+
+@pytest.fixture
+def settings():
+    return Settings()
 
 
 @contextmanager
