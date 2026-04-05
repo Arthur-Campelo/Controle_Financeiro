@@ -1,7 +1,10 @@
 from http import HTTPStatus
 
+import pytest
 
-def test_login_for_access_token(client, user):
+
+@pytest.mark.asyncio
+async def test_login_for_access_token(client, user):
     response = client.post(
         'auth/token/',
         data={'username': user.email, 'password': user.clean_password},
@@ -14,7 +17,8 @@ def test_login_for_access_token(client, user):
     assert 'access_token' in token
 
 
-def test_login_for_access_token_not_found(client, user):
+@pytest.mark.asyncio
+async def test_login_for_access_token_not_found(client, user):
     response = client.post(
         'auth/token/',
         data={'username': 'wrong@email', 'password': user.clean_password},
@@ -23,7 +27,8 @@ def test_login_for_access_token_not_found(client, user):
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
-def test_login_for_access_token_unauthorized(client, user):
+@pytest.mark.asyncio
+async def test_login_for_access_token_unauthorized(client, user):
     response = client.post(
         'auth/token/',
         data={'username': user.email, 'password': 'wrong_password'},

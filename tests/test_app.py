@@ -1,8 +1,8 @@
-from controle_financeiro.database import get_session
+from http import HTTPStatus
 
 
-def test_get_session_real():
-    session_generator = get_session()
-    session = next(session_generator)
-    assert session is not None
-    session.close()
+def test_root_deve_retornar_ok_e_ola_mundo(client):
+    response = client.get('/')
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {'message': 'Olá Mundo!'}

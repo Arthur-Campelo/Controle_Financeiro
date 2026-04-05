@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from controle_financeiro.database import get_session
 from controle_financeiro.models import User
@@ -21,18 +21,18 @@ from controle_financeiro.security import (
 
 router = APIRouter(prefix='/users', tags=['users'])
 
-Session = Annotated[Session, Depends(get_session)]
+AsyncSession = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 FilterPage = Annotated[FilterPage, Query()]
 
 
 @router.get('/', status_code=HTTPStatus.OK, response_model=UserListSchema)
-def fetch_users(
-    session: Session,
+async def fetch_users(
+    session: AsyncSession,
     current_user: CurrentUser,
     filter_page: FilterPage,
 ):
-    users = session.scalars(
+    users = await session.scalars(
         select(User).limit(filter_page.limit).offset(filter_page.offset)
     )
     return {'users': users}
@@ -43,15 +43,15 @@ def fetch_users(
     status_code=HTTPStatus.OK,
     response_model=UserPublicSchema,
 )
-def fetch_user(
+async def fetch_user(
     user_id: int,
-    session: Session,
+    session: AsyncSession,
     current_user: CurrentUser,
 ):
     if not user_id:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_CONTENT)
 
-    db_user = session.scalar(select(User).where(User.id == user_id))
+    db_user = await session.scalar(select(User).where(User.id == user_id))
 
     if not db_user:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
@@ -62,9 +62,9 @@ def fetch_user(
 @router.post(
     '/', status_code=HTTPStatus.CREATED, response_model=UserPublicSchema
 )
-def create_user(user: UserPrivateSchema, session: Session):
+async def create_user(user: UserPrivateSchema, session: AsyncSession):
 
-    db_user = session.scalar(
+    db_user = await session.scalar(
         select(User).where(
             (User.username == user.username) | (User.email == user.email)
         )
@@ -77,7 +77,7 @@ def create_user(user: UserPrivateSchema, session: Session):
     session.add(db_user)
 
     try:
-        session.commit()
+        await session.commit()
     except IntegrityError:
         raise HTTPException(
             detail='Username or Email already exists',
@@ -92,10 +92,10 @@ def create_user(user: UserPrivateSchema, session: Session):
     status_code=HTTPStatus.OK,
     response_model=UserPublicSchema,
 )
-def update_user(
+async def update_user(
     user_id: int,
     user: UserPrivateSchema,
-    session: Session,
+    session: AsyncSession,
     current_user: CurrentUser,
 ):
     if not user_id:
@@ -110,7 +110,7 @@ def update_user(
         current_user.password = get_password_hash(user.password)
         current_user.birth_date = user.birth_date
 
-        session.commit()
+        await session.commit()
 
     except IntegrityError:
         raise HTTPException(
@@ -118,14 +118,14 @@ def update_user(
             status_code=HTTPStatus.CONFLICT,
         )
 
-    session.refresh(current_user)
+    await session.refresh(current_user)
     return current_user
 
 
 @router.delete('/{user_id}', status_code=HTTPStatus.NO_CONTENT)
-def delete_user(
+async def delete_user(
     user_id: int,
-    session: Session,
+    session: AsyncSession,
     current_user: CurrentUser,
 ):
     if not user_id:
@@ -134,5 +134,5 @@ def delete_user(
     if current_user.id != user_id:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN)
 
-    session.delete(current_user)
-    session.commit()
+    await session.delete(current_user)
+    await session.commit()

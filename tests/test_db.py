@@ -1,12 +1,22 @@
 from dataclasses import asdict
 from datetime import date
 
+import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from controle_financeiro.database import get_session
 from controle_financeiro.models import User
 
 
-def test_create_user(session, mock_db_time):
+@pytest.mark.asyncio
+async def test_get_session():
+    async with get_session() as session:
+        assert session is not None
+
+
+@pytest.mark.asyncio
+async def test_create_user(session: AsyncSession, mock_db_time):
 
     with mock_db_time(model=User) as time:
         new_user = User(
@@ -17,9 +27,11 @@ def test_create_user(session, mock_db_time):
         )
 
         session.add(new_user)
-        session.commit()
+        await session.commit()
 
-        user = session.scalar(select(User).where(User.username == 'alice'))
+        user = await session.scalar(
+            select(User).where(User.username == 'alice')
+        )
 
         assert asdict(user) == {
             'id': 1,

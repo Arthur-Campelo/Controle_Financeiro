@@ -9,12 +9,14 @@ readme = "README.md"
 requires-python = ">=3.13, <4.0"
 dependencies = [
     "fastapi[standard] (>=0.135.2,<0.136.0)",
-    "sqlalchemy (>=2.0.48,<3.0.0)",
+    "sqlalchemy[asyncio] (>=2.0.49,<3.0.0)",
     "pydantic-settings (>=2.13.1,<3.0.0)",
     "alembic (>=1.18.4,<2.0.0)",
     "pwdlib[argon2] (>=0.3.0,<0.4.0)",
     "pyjwt (>=2.12.1,<3.0.0)",
-    "tzdata (>=2025.3,<2026.0)"
+    "tzdata (>=2025.3,<2026.0)",
+    "aiosqlite (>=0.22.1,<0.23.0)",
+    "pytest-asyncio (>=1.3.0,<2.0.0)"
 ]
 
 
@@ -44,6 +46,7 @@ quote-style = 'single'
 [tool.pytest.ini_options]
 pythonpath= "."
 addopts = '-p no:warnings'
+asyncio_default_fixture_loop_scope = 'function'
 
 [tool.taskipy.tasks]
 lint= 'ruff check'
@@ -53,3 +56,6 @@ run= 'fastapi dev controle_financeiro/app.py'
 pre_test = 'task lint'
 test= 'pytest -s -x --cov=controle_financeiro -vv'
 post_test = 'coverage html'
+
+[tool.coverage.run]
+concurrency = ["thread", "greenlet"]
