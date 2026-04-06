@@ -11,6 +11,7 @@ from controle_financeiro.models import User
 from controle_financeiro.schemas import Token
 from controle_financeiro.security import (
     create_access_token,
+    get_current_user,
     verify_password,
 )
 
@@ -45,3 +46,11 @@ async def login_for_access_token(
     access_token = create_access_token({'sub': db_user.email})
 
     return {'access_token': access_token, 'token_type': 'Bearer'}
+
+
+@router.post('/refresh_token/', response_model=Token)
+async def refresh_for_new_access_token(
+    user: Annotated[User, Depends(get_current_user)],
+):
+    new_access_token = create_access_token({'sub': user.email})
+    return {'access_token': new_access_token, 'token_type': 'Bearer'}

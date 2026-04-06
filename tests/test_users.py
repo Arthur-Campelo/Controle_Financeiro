@@ -87,7 +87,6 @@ def test_update_user(client, user, token):
         f'/users/{user.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
-            'user_id': 1,
             'username': 'bob',
             'password': 'test',
             'email': 'bob@gmail.com',
@@ -104,22 +103,9 @@ def test_update_user(client, user, token):
     }
 
 
-def test_update_user_forbidden(client, token):
-
-    other_user = client.post(
-        '/users/',
-        json={
-            'username': 'test',
-            'email': 'test@gmail.com',
-            'birth_date': '2026-03-27',
-            'password': 'test',
-        },
-    )
-
-    other_user_id = other_user.json()['id']
-
+def test_update_user_forbidden(client, token, other_user):
     response = client.put(
-        f'/users/{other_user_id}',
+        f'/users/{other_user.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
             'username': 'bob',
@@ -132,25 +118,14 @@ def test_update_user_forbidden(client, token):
     assert response.status_code == HTTPStatus.FORBIDDEN
 
 
-def test_update_user_integrity(client, user, token):
-
-    client.post(
-        '/users/',
-        json={
-            'username': 'teste',
-            'password': 'teste',
-            'email': 'teste@gmail.com',
-            'birth_date': '2026-03-27',
-        },
-    )
-
+def test_update_user_integrity(client, user, other_user, token):
     response = client.put(
         f'/users/{user.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
-            'username': 'teste',
+            'username': other_user.username,
+            'email': other_user.email,
             'password': 'teste',
-            'email': 'teste@gmail.com',
             'birth_date': '2026-03-27',
         },
     )
@@ -158,7 +133,7 @@ def test_update_user_integrity(client, user, token):
     assert response.status_code == HTTPStatus.CONFLICT
 
 
-def test_update_user_unprocessable_content(client, user, token):
+def test_update_user_unprocessable_content(client, token):
     response = client.put(
         '/users/0',
         headers={'Authorization': f'Bearer {token}'},
@@ -198,21 +173,10 @@ def test_delete_user(client, user, token):
     assert response.status_code == HTTPStatus.NO_CONTENT
 
 
-def test_delete_user_forbidden(client, token):
-    other_user = client.post(
-        '/users/',
-        json={
-            'username': 'test',
-            'email': 'test@gmail.com',
-            'birth_date': '2026-03-27',
-            'password': 'test',
-        },
-    )
-
-    other_user_id = other_user.json()['id']
+def test_delete_user_forbidden(client, other_user,token):
 
     response = client.delete(
-        f'/users/{other_user_id}',
+        f'/users/{other_user.id}',
         headers={'Authorization': f'Bearer {token}'},
     )
 

@@ -1,9 +1,11 @@
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
+import factory
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
+from freezegun import freeze_time
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -53,12 +55,24 @@ def mock_db_time():
 @pytest_asyncio.fixture
 async def user(session: AsyncSession):
     password = 'alicealice'
-    user = User(
-        username='alice',
-        email='alice@gmail.com',
-        password=get_password_hash(password),
-        birth_date=date(2026, 3, 5),
-    )
+
+    user = UserFactory(password=get_password_hash(password))
+
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    # salvando apenas em execução a senha limpa para testes
+    user.clean_password = password  # type: ignore
+
+    return user
+
+
+@pytest_asyncio.fixture
+async def other_user(session: AsyncSession):
+    password = 'bobbob'
+
+    user = UserFactory(password=get_password_hash(password))
 
     session.add(user)
     await session.commit()
@@ -84,6 +98,26 @@ def token(client, user):
 
 
 @pytest.fixture
+def expired_token(client, user, settings):
+    time = datetime.now()
+    past_expired_token_time = time - timedelta(
+        days=settings.ACCESS_TOKEN_EXPIRE_DAYS,
+        minutes=1,  # Garantia para comparações >= ou >
+    )
+
+    with freeze_time(past_expired_token_time):
+        response = client.post(
+            '/auth/token',
+            data={
+                'username': user.email,
+                'password': user.clean_password,
+            },
+        )
+
+    return response.json()['access_token']
+
+
+@pytest.fixture
 def settings():
     return Settings()
 
@@ -101,3 +135,13 @@ def _mock_db_time(*, model, time=datetime(2025, 5, 20)):
     yield time
 
     event.remove(model, 'before_insert', fake_time_hook)
+
+
+class UserFactory(factory.Factory):
+    class Meta:
+        model = User
+
+    username = factory.sequence(lambda n: f'test{n}')
+    birth_date = date(2026, 3, 5)
+    email = factory.lazy_attribute(lambda obj: f'{obj.username}@email.com')
+    password = factory.lazy_attribute(lambda obj: f'{obj.username}123')
