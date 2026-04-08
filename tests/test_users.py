@@ -63,15 +63,6 @@ def test_fetch_user(client, user, token):
     assert response.json() == user_public
 
 
-def test_fetch_user_unprocessable_content(client, token):
-
-    response = client.get(
-        '/users/0', headers={'Authorization': f'Bearer {token}'}
-    )
-
-    assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
-
-
 def test_fetch_user_not_found(client, token):
 
     response = client.get(
@@ -83,7 +74,7 @@ def test_fetch_user_not_found(client, token):
 
 def test_update_user(client, user, token):
 
-    response = client.put(
+    response = client.patch(
         f'/users/{user.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
@@ -96,60 +87,57 @@ def test_update_user(client, user, token):
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {
-        'id': 1,
+        'id': user.id,
         'username': 'bob',
         'email': 'bob@gmail.com',
         'birth_date': '2026-03-27',
     }
 
 
-def test_update_user_forbidden(client, token, other_user):
-    response = client.put(
-        f'/users/{other_user.id}',
+def test_update_user_patch_email_only(client, user, token):
+
+    response = client.patch(
+        f'/users/{user.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
-            'username': 'bob',
-            'password': 'test',
             'email': 'bob@gmail.com',
-            'birth_date': '2026-03-27',
         },
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {
+        'id': user.id,
+        'username': user.username,
+        'email': 'bob@gmail.com',
+        'birth_date': user.birth_date.isoformat(),
+    }
+
+
+def test_update_user_forbidden(client, token, other_user):
+    response = client.patch(
+        f'/users/{other_user.id}',
+        headers={'Authorization': f'Bearer {token}'},
+        json={'username': 'bob'},
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
 
 
 def test_update_user_integrity(client, user, other_user, token):
-    response = client.put(
+    response = client.patch(
         f'/users/{user.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
             'username': other_user.username,
             'email': other_user.email,
-            'password': 'teste',
-            'birth_date': '2026-03-27',
         },
     )
 
     assert response.status_code == HTTPStatus.CONFLICT
 
 
-def test_update_user_unprocessable_content(client, token):
-    response = client.put(
-        '/users/0',
-        headers={'Authorization': f'Bearer {token}'},
-        json={
-            'username': 'bob',
-            'password': 'test',
-            'email': 'bob@gmail.com',
-            'birth_date': '2026-03-27',
-        },
-    )
-
-    assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
-
-
 # def test_update_user_not_found(client, token):
-#     response = client.put(
+#     response = client.patch(
 #         '/users/404',
 #         headers={'Authorization': f'Bearer {token}'},
 #         json={
@@ -173,7 +161,7 @@ def test_delete_user(client, user, token):
     assert response.status_code == HTTPStatus.NO_CONTENT
 
 
-def test_delete_user_forbidden(client, other_user,token):
+def test_delete_user_forbidden(client, other_user, token):
 
     response = client.delete(
         f'/users/{other_user.id}',
@@ -181,15 +169,6 @@ def test_delete_user_forbidden(client, other_user,token):
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
-
-
-def test_delete_user_unprocessable_content(client, token):
-    response = client.delete(
-        '/users/0',
-        headers={'Authorization': f'Bearer {token}'},
-    )
-
-    assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
 
 
 # def test_delete_user_not_found(client):

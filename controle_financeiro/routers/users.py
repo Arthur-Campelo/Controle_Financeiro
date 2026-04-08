@@ -10,9 +10,11 @@ from controle_financeiro.database import get_session
 from controle_financeiro.models import User
 from controle_financeiro.schemas import (
     FilterPage,
+    Id,
     UserListSchema,
     UserPrivateSchema,
     UserPublicSchema,
+    UserUpdate,
 )
 from controle_financeiro.security import (
     get_current_user,
@@ -44,12 +46,10 @@ async def fetch_users(
     response_model=UserPublicSchema,
 )
 async def fetch_user(
-    user_id: int,
+    user_id: Id,
     session: AsyncSession,
     current_user: CurrentUser,
 ):
-    if not user_id:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_CONTENT)
 
     db_user = await session.scalar(select(User).where(User.id == user_id))
 
@@ -87,28 +87,29 @@ async def create_user(user: UserPrivateSchema, session: AsyncSession):
     return db_user
 
 
-@router.put(
+@router.patch(
     '/{user_id}',
     status_code=HTTPStatus.OK,
     response_model=UserPublicSchema,
 )
 async def update_user(
-    user_id: int,
-    user: UserPrivateSchema,
+    user_id: Id,
+    user: UserUpdate,
     session: AsyncSession,
     current_user: CurrentUser,
 ):
-    if not user_id:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_CONTENT)
 
     if current_user.id != user_id:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN)
 
+    update_data = user.model_dump(exclude_unset=True)
+
+    if 'password' in update_data:
+        update_data['password'] = get_password_hash(user.password)
+
     try:
-        current_user.username = user.username
-        current_user.email = user.email
-        current_user.password = get_password_hash(user.password)
-        current_user.birth_date = user.birth_date
+        for key, value in update_data.items():
+            setattr(current_user, key, value)
 
         await session.commit()
 
@@ -124,12 +125,10 @@ async def update_user(
 
 @router.delete('/{user_id}', status_code=HTTPStatus.NO_CONTENT)
 async def delete_user(
-    user_id: int,
+    user_id: Id,
     session: AsyncSession,
     current_user: CurrentUser,
 ):
-    if not user_id:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_CONTENT)
 
     if current_user.id != user_id:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN)

@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import func
+from sqlalchemy import ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, registry
 
 table_registry = registry()
@@ -21,3 +21,18 @@ class User:
     updated_at: Mapped[datetime] = mapped_column(
         init=False, server_default=func.now()
     )
+
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey('groups.id', ondelete='SET NULL', use_alter=True),
+        default=None,
+    )
+
+
+@table_registry.mapped_as_dataclass
+class Group:
+    __tablename__ = 'groups'
+
+    id: Mapped[int] = mapped_column(init=False, primary_key=True)
+    name: Mapped[str]
+
+    owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
