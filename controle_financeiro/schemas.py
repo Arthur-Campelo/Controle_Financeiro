@@ -4,7 +4,10 @@ from typing import Annotated
 from fastapi import Path
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from controle_financeiro.models import PaymentCategory
+
 Id = Annotated[int, Path(gt=0)]
+FloatPositive = Annotated[float, Field(ge=0)]
 
 
 class Token(BaseModel):
@@ -62,3 +65,23 @@ class GroupPublicListSchema(BaseModel):
 class GroupUpdate(BaseModel):
     name: str | None = None
     owner_id: int | None = None
+
+
+#Payments
+class PaymentSchema(BaseModel):
+    amount: FloatPositive
+    category: PaymentCategory
+
+class PaymentPublicSchema(PaymentSchema):
+    id: Id
+    user_id: int
+    group_id: int
+
+
+class PaymentPublicListSchema(BaseModel):
+    payments: list[PaymentPublicSchema]
+
+
+class PaymentUpdate(BaseModel):
+    amount: FloatPositive | None = None
+    category: PaymentCategory | None = None

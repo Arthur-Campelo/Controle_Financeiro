@@ -69,8 +69,10 @@ async def create_group(
 
     session.add(db_group)
 
+    await session.flush()
+
+    current_user.group_id = db_group.id# todo: test this
     await session.commit()
-    await session.refresh(db_group)
 
     return db_group
 
