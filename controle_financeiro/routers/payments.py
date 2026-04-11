@@ -8,11 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from controle_financeiro.database import get_session
 from controle_financeiro.models import Payment, User
 from controle_financeiro.schemas import (
-    FilterPage,
     Id,
+    PaymentFilter,
     PaymentPublicListSchema,
     PaymentPublicSchema,
     PaymentSchema,
+    PaymentUpdate,
 )
 from controle_financeiro.security import (
     get_current_user,
@@ -22,31 +23,63 @@ router = APIRouter(prefix='/payments', tags=['Payments'])
 
 AsyncSession = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
-FilterPage = Annotated[FilterPage, Query()]
+PaymentFilter = Annotated[PaymentFilter, Query()]
+
+
+@router.post(
+    '/', status_code=HTTPStatus.CREATED, response_model=PaymentPublicSchema
+)
+async def create_payment(
+    session: AsyncSession,
+    current_user: CurrentUser,
+    payment: PaymentSchema,
+):
+    if not current_user.group_id:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail='Usuário sem grupo para pagamento',
+        )
+
+    db_payment = Payment(
+        **payment.model_dump(),
+        user_id=current_user.id,
+        group_id=current_user.group_id,
+    )
+
+    session.add(db_payment)
+    await session.commit()
+    await session.refresh(db_payment)
+
+    return db_payment
+
 
 @router.get(
     '/',
-    status_code= HTTPStatus.OK,
-    response_model= PaymentPublicListSchema,
+    status_code=HTTPStatus.OK,
+    response_model=PaymentPublicListSchema,
 )
 async def fetch_payments(
     session: AsyncSession,
     current_user: CurrentUser,
-    filter_page: FilterPage,
+    payment_filter: PaymentFilter,
 ):
 
+    query = select(Payment).where(Payment.group_id == current_user.group_id)
+
+    if payment_filter.category:
+        query = query.where(Payment.category == payment_filter.category)
+
     response = await session.scalars(
-        select(Payment).where(Payment.group_id == current_user.group_id)
-        .limit(filter_page.limit).offset(filter_page.offset)
+        query.limit(payment_filter.limit).offset(payment_filter.offset)
     )
 
-    return { 'payments': response}
+    return {'payments': response}
 
 
 @router.get(
     '/{payment_id}',
-    status_code= HTTPStatus.OK,
-    response_model= PaymentPublicSchema,
+    status_code=HTTPStatus.OK,
+    response_model=PaymentPublicSchema,
 )
 async def fetch_payment(
     session: AsyncSession,
@@ -56,8 +89,8 @@ async def fetch_payment(
 
     response = await session.scalar(
         select(Payment).where(
-            (Payment.id == payment_id) &
-            (Payment.group_id == current_user.group_id)
+            (Payment.id == payment_id)
+            & (Payment.group_id == current_user.group_id)
         )
     )
 
@@ -67,45 +100,16 @@ async def fetch_payment(
     return response
 
 
-@router.post(
-    '/',
-    status_code= HTTPStatus.CREATED,
-    response_model=PaymentPublicSchema
-)
-async def create_payment(
-    session: AsyncSession,
-    current_user: CurrentUser,
-    payment: PaymentSchema,
-):
-    if not current_user.group_id:
-        raise HTTPException(
-            status_code= HTTPStatus.UNPROCESSABLE_CONTENT,
-            detail=f'{current_user}'
-        )
-
-    db_payment = Payment(
-        **payment.model_dump(),
-        user_id=current_user.id,
-        group_id = current_user.group_id
-        )
-
-    session.add(db_payment)
-    await session.commit()
-    await session.refresh(db_payment)
-
-    return db_payment
-
-
 @router.patch(
     '/{payment_id}',
-    status_code= HTTPStatus.OK,
-    response_model= PaymentPublicSchema,
+    status_code=HTTPStatus.OK,
+    response_model=PaymentPublicSchema,
 )
 async def patch_payment(
     session: AsyncSession,
     current_user: CurrentUser,
     payment_id: Id,
-    payment: PaymentSchema,
+    payment: PaymentUpdate,
 ):
     db_payment = await session.scalar(
         select(Payment).where(Payment.id == payment_id)
@@ -118,7 +122,7 @@ async def patch_payment(
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN)
 
     for key, value in payment.model_dump(exclude_unset=True).items():
-            setattr(db_payment, key, value)
+        setattr(db_payment, key, value)
 
     await session.commit()
     await session.refresh(db_payment)
@@ -128,7 +132,7 @@ async def patch_payment(
 
 @router.delete(
     '/{payment_id}',
-    status_code= HTTPStatus.OK,
+    status_code=HTTPStatus.NO_CONTENT,
 )
 async def delete_payment(
     session: AsyncSession,

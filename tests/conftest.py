@@ -15,6 +15,7 @@ from controle_financeiro.database import get_session
 from controle_financeiro.models import User, table_registry
 from controle_financeiro.security import get_password_hash
 from controle_financeiro.settings import Settings
+from tests.test_groups import GroupFactory
 
 
 @pytest.fixture
@@ -66,6 +67,21 @@ async def user(session: AsyncSession):
     user.clean_password = password  # type: ignore
 
     return user
+
+
+# todo use or delete this fixture
+@pytest_asyncio.fixture
+async def group(session: AsyncSession, user):
+
+    group = GroupFactory(owner_id=user.id)
+
+    session.add(group)
+    await session.flush()
+
+    user.group_id = group.id
+    await session.commit()
+
+    return group
 
 
 @pytest_asyncio.fixture

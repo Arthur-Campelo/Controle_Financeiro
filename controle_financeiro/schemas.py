@@ -67,10 +67,11 @@ class GroupUpdate(BaseModel):
     owner_id: int | None = None
 
 
-#Payments
+# Payments
 class PaymentSchema(BaseModel):
     amount: FloatPositive
     category: PaymentCategory
+
 
 class PaymentPublicSchema(PaymentSchema):
     id: Id
@@ -84,4 +85,8 @@ class PaymentPublicListSchema(BaseModel):
 
 class PaymentUpdate(BaseModel):
     amount: FloatPositive | None = None
+    category: PaymentCategory | None = None
+
+
+class PaymentFilter(FilterPage):
     category: PaymentCategory | None = None

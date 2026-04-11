@@ -71,7 +71,7 @@ async def create_group(
 
     await session.flush()
 
-    current_user.group_id = db_group.id# todo: test this
+    current_user.group_id = db_group.id  # todo: test this
     await session.commit()
 
     return db_group
